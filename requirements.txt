@@ -1,0 +1,24 @@
+# Backend
+Node.js
+Express.js
+Socket.IO
+MongoDB
+Mongoose
+dotenv
+cors
+
+# Frontend
+React.js
+React Router DOM
+Socket.IO Client
+Leaflet
+React Leaflet
+
+# Deployment
+Vercel
+Render
+
+# Tools
+Git
+GitHub
+Postman
