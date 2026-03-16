@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, GeoJSON, useMap } from "react-leaflet";
 import { useEffect, useState } from "react";
 import "../../services/leafletIconFix";
 import socket from "../../socket";
@@ -15,8 +15,9 @@ const RecenterMap = ({ position }) => {
 
 const LocationMap = () => {
 
-  const [position, setPosition] = useState([18.6770, 73.8987]); // default
+  const [position, setPosition] = useState([18.6770, 73.8987]); // default location
   const [accuracy, setAccuracy] = useState(null);
+  const [manholes, setManholes] = useState(null);
 
   /* 📡 GPS Logic */
   useEffect(() => {
@@ -59,18 +60,34 @@ const LocationMap = () => {
 
   }, []);
 
+  /* 📍 Load Manholes GeoJSON */
+  useEffect(() => {
+
+    fetch("/manholes.geojson")
+      .then((res) => res.json())
+      .then((data) => {
+        setManholes(data);
+      })
+      .catch((err) => {
+        console.error("Error loading manholes:", err);
+      });
+
+  }, []);
+
   return (
     <div className="worker-card">
 
       <div className="location-title">📍 Live Location</div>
 
       <div className="map-wrapper">
+
         <MapContainer
           center={position}
           zoom={18}
           scrollWheelZoom={false}
           className="leaflet-map"
         >
+
           <TileLayer
             attribution="© OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -78,6 +95,7 @@ const LocationMap = () => {
 
           <RecenterMap position={position} />
 
+          {/* Worker Location */}
           <Marker position={position}>
             <Popup>
               You are here <br />
@@ -85,6 +103,7 @@ const LocationMap = () => {
             </Popup>
           </Marker>
 
+          {/* Accuracy Circle */}
           {accuracy && (
             <Circle
               center={position}
@@ -96,7 +115,20 @@ const LocationMap = () => {
             />
           )}
 
+          {/* Manholes Layer */}
+          {manholes && (
+            <GeoJSON
+              data={manholes}
+              onEachFeature={(feature, layer) => {
+                layer.bindPopup(
+                  "Manhole ID: " + (feature.properties.id || "N/A")
+                );
+              }}
+            />
+          )}
+
         </MapContainer>
+
       </div>
 
       <p className="gps-note">
