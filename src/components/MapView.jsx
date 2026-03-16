@@ -28,20 +28,25 @@ const MapView = () => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {manholes && (
-        <GeoJSON
-          key="manholes-layer"
-          data={manholes}
-          pointToLayer={(feature, latlng) => {
-            return L.circleMarker(latlng, {
-              radius: 4,
-              fillColor: "black",
-              color: "black",
-              weight: 1,
-              fillOpacity: 1
-            });
-          }}
-        />
+{manholes && (
+  <GeoJSON
+    data={manholes}
+    pointToLayer={(feature, latlng) => {
+      return new L.CircleMarker(latlng, {
+        radius: 4,
+        fillColor: "#000000",
+        color: "#000000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 1
+      });
+    }}
+    onEachFeature={(feature, layer) => {
+      layer.bindPopup(
+        "Manhole ID: " + (feature.properties?.id || "N/A")
+      );
+    }}
+  />
 )}
 
       </MapContainer>
