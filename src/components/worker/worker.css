@@ -333,29 +333,27 @@ html, body, #root {
    Manhole Navigator UI
 ========================= */
 .map-controls {
+  margin: 12px 0;
   display: flex;
   gap: 8px;
-  align-items: center;
-
-  background: rgba(255, 255, 255, 0.95);
-  padding: 8px;
-  border-radius: 10px;
-
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-
-  max-width: 90%;   /* ✅ prevent overflow */
-  width: fit-content;
+  justify-content: center;
 }
+
 .map-controls input {
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid #ccc;
-
-  font-size: 14px;
-
-  width: 120px;   /* desktop */
+  width: 140px;
 }
 
+.map-controls button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: #007bff;
+  color: white;
+  font-weight: 500;
+}
 /* 📱 Mobile fix */
 @media (max-width: 600px) {
   .map-controls {
