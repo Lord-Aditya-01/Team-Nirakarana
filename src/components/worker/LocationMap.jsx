@@ -187,8 +187,10 @@ const LocationMap = () => {
                   }}
                 >
                   <Popup>
-                    <strong>ID:</strong> {id}
-                  </Popup>
+                    <strong>Manhole ID:</strong> {id} <br />
+                    <strong>Lat:</strong> {coords[1].toFixed(5)} <br />
+                    <strong>Lng:</strong> {coords[0].toFixed(5)}
+                </Popup>
                 </CircleMarker>
               );
             })}
