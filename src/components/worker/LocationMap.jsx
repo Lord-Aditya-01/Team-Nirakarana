@@ -82,7 +82,12 @@ const LocationMap = () => {
       <div className="location-title">📍 Live Location</div>
 
       <div className="map-wrapper">
-        
+        <div className="map-controls">
+          <ManholeNavigator
+            position={position}
+            manholes={manholes}
+          />
+        </div>
         <MapContainer
           center={position}
           zoom={18}
@@ -143,10 +148,7 @@ const LocationMap = () => {
                 </CircleMarker>
               );
             })}
-          <ManholeNavigator
-            position={position}
-            manholes={manholes}
-          />
+          
         </MapContainer>
 
       </div>

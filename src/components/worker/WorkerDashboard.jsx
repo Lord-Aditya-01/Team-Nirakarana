@@ -36,6 +36,7 @@ const WorkerDashboard = () => {
         <WorkerHeader worker={worker} />
 
         {/* GPS tracking handled inside LocationMap */}
+        
         <LocationMap />
 
         <GasStatus />
