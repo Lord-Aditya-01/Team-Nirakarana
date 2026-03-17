@@ -1,10 +1,22 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, GeoJSON, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  useMap,
+  CircleMarker,
+  Polyline
+} from "react-leaflet";
+
 import { useEffect, useState } from "react";
 import "../../services/leafletIconFix";
 import socket from "../../socket";
-import { CircleMarker} from "react-leaflet";
-import ManholeNavigator from "./ManholeNavigator";
+import ManholeInput from "./ManholeInput"; // ✅ correct import
 
+// ======================
+// Recenter Map
+// ======================
 const RecenterMap = ({ position }) => {
   const map = useMap();
 
@@ -15,13 +27,55 @@ const RecenterMap = ({ position }) => {
   return null;
 };
 
+// ======================
+// MAIN COMPONENT
+// ======================
 const LocationMap = () => {
 
-  const [position, setPosition] = useState([18.6770, 73.8987]); // default location
+  const [position, setPosition] = useState([18.6770, 73.8987]);
   const [accuracy, setAccuracy] = useState(null);
   const [manholes, setManholes] = useState(null);
+  const [route, setRoute] = useState(null); // ✅ moved inside
 
-  /* 📡 GPS Logic */
+  // ======================
+  // Navigation Function
+  // ======================
+  const handleNavigate = async (targetId) => {
+
+    if (!manholes || !targetId) return;
+
+    const target = manholes.features.find(
+      f => String(f.properties?.id) === targetId
+    );
+
+    if (!target) {
+      alert("Manhole not found");
+      return;
+    }
+
+    const [destLng, destLat] = target.geometry.coordinates;
+    const [startLat, startLng] = position;
+
+    const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      const coords = data.routes[0].geometry.coordinates;
+
+      const routeLatLng = coords.map(c => [c[1], c[0]]);
+
+      setRoute(routeLatLng);
+
+    } catch (err) {
+      console.error("Routing error:", err);
+    }
+  };
+
+  // ======================
+  // GPS Logic
+  // ======================
   useEffect(() => {
 
     if (!navigator.geolocation) {
@@ -32,14 +86,12 @@ const LocationMap = () => {
     const watchId = navigator.geolocation.watchPosition(
 
       (pos) => {
-
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
 
         setAccuracy(pos.coords.accuracy);
         setPosition([lat, lng]);
 
-        // 🚀 SEND LIVE LOCATION TO SERVER
         socket.emit("worker-location-update", {
           latitude: lat,
           longitude: lng,
@@ -62,18 +114,14 @@ const LocationMap = () => {
 
   }, []);
 
-  /* 📍 Load Manholes GeoJSON */
+  // ======================
+  // Load GeoJSON
+  // ======================
   useEffect(() => {
-
     fetch("/manholes.geojson")
       .then((res) => res.json())
-      .then((data) => {
-        setManholes(data);
-      })
-      .catch((err) => {
-        console.error("Error loading manholes:", err);
-      });
-
+      .then((data) => setManholes(data))
+      .catch((err) => console.error("Error loading manholes:", err));
   }, []);
 
   return (
@@ -82,12 +130,10 @@ const LocationMap = () => {
       <div className="location-title">📍 Live Location</div>
 
       <div className="map-wrapper">
-        <div className="map-controls">
-          <ManholeNavigator
-            position={position}
-            manholes={manholes}
-          />
-        </div>
+
+        {/* ✅ Input OUTSIDE map */}
+        <ManholeInput onNavigate={handleNavigate} />
+
         <MapContainer
           center={position}
           zoom={18}
@@ -102,7 +148,7 @@ const LocationMap = () => {
 
           <RecenterMap position={position} />
 
-          {/* Worker Location */}
+          {/* Worker */}
           <Marker position={position}>
             <Popup>
               You are here <br />
@@ -110,7 +156,7 @@ const LocationMap = () => {
             </Popup>
           </Marker>
 
-          {/* Accuracy Circle */}
+          {/* Accuracy circle */}
           {accuracy && (
             <Circle
               center={position}
@@ -122,7 +168,7 @@ const LocationMap = () => {
             />
           )}
 
-          {/* Manholes Layer */}
+          {/* Manholes */}
           {manholes &&
             manholes.features.map((feature, index) => {
 
@@ -133,7 +179,7 @@ const LocationMap = () => {
                 <CircleMarker
                   key={index}
                   center={[coords[1], coords[0]]}
-                  radius={4}
+                  radius={3}
                   pathOptions={{
                     color: "black",
                     fillColor: "black",
@@ -141,14 +187,20 @@ const LocationMap = () => {
                   }}
                 >
                   <Popup>
-                    <strong>Manhole ID:</strong> {id} <br />
-                    <strong>Lat:</strong> {coords[1].toFixed(5)} <br />
-                    <strong>Lng:</strong> {coords[0].toFixed(5)}
+                    <strong>ID:</strong> {id}
                   </Popup>
                 </CircleMarker>
               );
             })}
-          
+
+          {/* Route */}
+          {route && (
+            <Polyline
+              positions={route}
+              pathOptions={{ color: "blue", weight: 4 }}
+            />
+          )}
+
         </MapContainer>
 
       </div>
