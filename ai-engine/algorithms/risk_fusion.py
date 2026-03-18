@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 def compute_final_risk(df):
 
     final_status = []
@@ -9,13 +12,13 @@ def compute_final_risk(df):
         score = 0
         reasons = []
 
-        gas = row["gas_level_ppm"]
-        oxygen = row["oxygen_level_percent"]
-        ventilation = row["ventilation_condition"]
-        water = row["water_level_condition"]
+        gas = row.get("gas_level_ppm", 0)
+        oxygen = row.get("oxygen_level_percent", 21)
+        ventilation = row.get("ventilation_condition", 1)
+        water = row.get("water_level_condition", 1)
 
         # -------------------------------
-        # 🚨 HARD RULES (ONLY EXTREME)
+        # 🚨 ABSOLUTE LIFE-CRITICAL RULES
         # -------------------------------
         if oxygen < 17:
             final_status.append("DANGER")
@@ -30,7 +33,37 @@ def compute_final_risk(df):
             continue
 
         # -------------------------------
-        # 📊 BASE SCORING
+        # 🚨 REAL-WORLD KILLER CONDITIONS
+        # -------------------------------
+        if gas > 50 and ventilation >= 2:
+            final_status.append("DANGER")
+            risk_score.append(95)
+            reason.append("Gas + Poor Ventilation")
+            continue
+
+        if water == 3 and gas > 40:
+            final_status.append("DANGER")
+            risk_score.append(90)
+            reason.append("Gas + High Water")
+            continue
+
+        # -------------------------------
+        # 🚨 SYSTEM OVERRIDE (CRITICAL)
+        # -------------------------------
+        if row.get("rule_status") == "DANGER":
+            final_status.append("DANGER")
+            risk_score.append(90)
+            reason.append("Rule Engine Triggered")
+            continue
+
+        if row.get("ml_prediction") == 2 and row.get("ml_confidence", 0) > 0.6:
+            final_status.append("DANGER")
+            risk_score.append(85)
+            reason.append("ML High Risk")
+            continue
+
+        # -------------------------------
+        # 📊 BASE SCORING SYSTEM
         # -------------------------------
 
         # Gas
@@ -49,7 +82,7 @@ def compute_final_risk(df):
             score += 20
             reasons.append("Borderline Oxygen")
 
-        # 🔥 EXTRA BOOST (FIX FOR MODERATE)
+        # Moderate Boost
         if 45 <= gas <= 70:
             score += 10
             reasons.append("Moderate Gas Range")
@@ -58,8 +91,8 @@ def compute_final_risk(df):
             score += 10
             reasons.append("Borderline Oxygen Range")
 
-        # Ventilation
-        if ventilation == 2:
+        # Ventilation (FIXED)
+        if ventilation >= 2:
             score += 20
             reasons.append("Poor Ventilation")
 
@@ -69,18 +102,20 @@ def compute_final_risk(df):
             reasons.append("High Water")
 
         # Maintenance
-        if row["maintenance_gap_days"] > 60:
+        if row.get("maintenance_gap_days", 0) > 60:
             score += 10
+            reasons.append("Maintenance Delay")
 
         # Incidents
-        if row["past_incidents"] > 2:
+        if row.get("past_incidents", 0) > 2:
             score += 10
+            reasons.append("Past Incidents")
 
         # -------------------------------
         # 🤖 ML INFLUENCE
         # -------------------------------
-        ml = row["ml_prediction"]
-        conf = row["ml_confidence"]
+        ml = row.get("ml_prediction", 0)
+        conf = row.get("ml_confidence", 0)
 
         if ml == 2:
             score += int(25 * conf)
@@ -88,22 +123,24 @@ def compute_final_risk(df):
             score += int(10 * conf)
 
         # -------------------------------
-        # ⚠️ UNCERTAINTY
+        # ⚠️ UNCERTAINTY HANDLING
         # -------------------------------
         if row.get("uncertain", False):
             score += 8
+            reasons.append("Uncertain Prediction")
 
         # -------------------------------
-        # ⚠️ ANOMALY
+        # ⚠️ ANOMALY DETECTION
         # -------------------------------
         if row.get("anomaly_flag", 0) == 1:
             score += 15
+            reasons.append("Anomaly Detected")
 
         # -------------------------------
-        # 🚨 SAFETY LOCK (CRITICAL FIX)
+        # 🚨 SAFETY LOCK (NO FALSE SAFE)
         # -------------------------------
-        if gas > 45 or oxygen < 19 or ventilation == 2:
-            score = max(score, 30)  # ensures ALERT minimum
+        if gas > 40 or oxygen < 19 or ventilation >= 2:
+            score = max(score, 30)
 
         # -------------------------------
         # 🎯 FINAL DECISION
@@ -119,6 +156,9 @@ def compute_final_risk(df):
         risk_score.append(min(score, 100))
         reason.append(", ".join(reasons) if reasons else "Normal")
 
+    # -------------------------------
+    # ✅ SAVE RESULTS
+    # -------------------------------
     df["final_status"] = final_status
     df["risk_score"] = risk_score
     df["risk_reason"] = reason

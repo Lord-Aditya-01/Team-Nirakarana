@@ -83,7 +83,7 @@ def main():
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
     else:
-        file_path = "data/Samved_input_Danger1.xlsx"
+        file_path = "data/Samved_input_Safe1.xlsx"
 
     print(f"\nUsing input file: {file_path}")
 
