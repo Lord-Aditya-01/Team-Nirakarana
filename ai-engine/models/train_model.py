@@ -7,7 +7,7 @@ from sklearn.metrics import classification_report
 
 def train_model():
 
-    print("📥 Loading data...")
+    print("Loading data...")
 
     df = pd.read_excel("data/training_data.xlsx")
 
@@ -45,7 +45,7 @@ def train_model():
 
     y = df[target]
 
-    print("📊 Features:", X.columns.tolist())
+    print("Features:", X.columns.tolist())
 
     # -------------------------------
     # 🔀 SPLIT
@@ -66,7 +66,7 @@ def train_model():
         random_state=42,
     )
 
-    print("🚀 Training model...")
+    print("Training model...")
     model.fit(X_train, y_train)
 
     # -------------------------------
@@ -74,30 +74,34 @@ def train_model():
     # -------------------------------
     y_pred = model.predict(X_test)
 
-    print("\n📊 Model Performance:\n")
+    print("\nModel Performance:\n")
     print(classification_report(y_test, y_pred))
 
     # -------------------------------
     # 🔁 CROSS VALIDATION
     # -------------------------------
     scores = cross_val_score(model, X, y, cv=5)
-    print("\n🔁 Cross-validation scores:", scores)
+    print("\nCross-validation scores:", scores)
     print("Average accuracy:", scores.mean())
 
     # -------------------------------
     # 🔥 FEATURE IMPORTANCE
     # -------------------------------
     importance = pd.Series(model.feature_importances_, index=X.columns)
-    print("\n🔥 Feature Importance:\n")
+    print("\nFeature Importance:\n")
     print(importance.sort_values(ascending=False).head(10))
 
     # -------------------------------
     # 💾 SAVE MODEL
     # -------------------------------
-    joblib.dump(model, "models/risk_model.pkl")
-    joblib.dump(X.columns.tolist(), "models/model_features.pkl")
 
-    print("\n✅ Model + Features saved!")
+    # Save model
+    joblib.dump(model, "models/risk_model.pkl")
+
+    # Save feature order
+    joblib.dump(X.columns.tolist(), "models/feature_columns.pkl")
+
+    print("✅ Model + features saved!")
 
 
 if __name__ == "__main__":

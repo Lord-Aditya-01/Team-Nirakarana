@@ -1,7 +1,45 @@
 import pandas as pd
 
 
+# -------------------------------
+# 🔥 MAKE COLUMN NAMES UNIQUE
+# -------------------------------
+def make_columns_unique(columns):
+    seen = {}
+    new_cols = []
+
+    for col in columns:
+        if col not in seen:
+            seen[col] = 0
+            new_cols.append(col)
+        else:
+            seen[col] += 1
+            new_cols.append(f"{col}_{seen[col]}")
+
+    return new_cols
+
+
+# -------------------------------
+# 🔥 SAFE COLUMN ACCESS
+# -------------------------------
+def get_series(df, col):
+    if col not in df.columns:
+        return pd.Series([0] * len(df))
+
+    data = df[col]
+
+    # If duplicate → DataFrame → take first column
+    if isinstance(data, pd.DataFrame):
+        data = data.iloc[:, 0]
+
+    return data.reset_index(drop=True)
+
+
+# -------------------------------
+# 🚀 MAIN PREPROCESS FUNCTION
+# -------------------------------
 def preprocess(df, weather):
+
     print("🧹 Starting preprocessing...")
 
     # -------------------------------
@@ -16,15 +54,34 @@ def preprocess(df, weather):
     )
 
     # -------------------------------
-    # ✅ REMOVE DUPLICATE COLUMNS (EXTRA SAFETY)
+    # 🚨 REMOVE DUPLICATES (CRITICAL)
     # -------------------------------
     df = df.loc[:, ~df.columns.duplicated()]
 
+    # Extra safety
+    df.columns = make_columns_unique(df.columns)
+
     # -------------------------------
-    # ✅ CLEAN STRING VALUES (SAFE)
+    # 🚨 FIX INDEX
+    # -------------------------------
+    df = df.reset_index(drop=True)
+
+    # -------------------------------
+    # ✅ CLEAN STRING VALUES
     # -------------------------------
     df = df.apply(
         lambda col: col.map(lambda x: x.strip().lower() if isinstance(x, str) else x)
+    )
+
+    # -------------------------------
+    # ✅ FIX COLUMN NAME MISMATCH
+    # -------------------------------
+    df.rename(
+        columns={
+            "water_level_status": "water_level_condition",
+            "sensor_temperature_c": "temperature_c",
+        },
+        inplace=True,
     )
 
     # -------------------------------
@@ -58,28 +115,38 @@ def preprocess(df, weather):
             df[col] = val
 
     # -------------------------------
-    # ✅ TEXT → NUMERIC
+    # 🔥 FIXED CATEGORICAL MAPPING
     # -------------------------------
+
+    # Ventilation
     df["ventilation_condition"] = (
-        df["ventilation_condition"].map({"good": 1, "moderate": 1, "poor": 2}).fillna(1)
+        get_series(df, "ventilation_condition")
+        .replace({"good": 1, "moderate": 2, "average": 2, "poor": 3, "bad": 3})
+        .fillna(1)
     )
 
+    # Water Level
     df["water_level_condition"] = (
-        df["water_level_condition"].map({"normal": 1, "medium": 2, "high": 3}).fillna(1)
+        get_series(df, "water_level_condition")
+        .replace({"low": 1, "normal": 2, "medium": 2, "moderate": 2, "high": 3})
+        .fillna(2)
     )
 
+    # Optional fields
     if "visible_gas_odor" in df.columns:
         df["visible_gas_odor"] = (
-            df["visible_gas_odor"].map({"yes": 1, "no": 0}).fillna(0)
+            get_series(df, "visible_gas_odor").map({"yes": 1, "no": 0}).fillna(0)
         )
 
     if "safety_equipment_available" in df.columns:
         df["safety_equipment_available"] = (
-            df["safety_equipment_available"].map({"yes": 1, "no": 0}).fillna(1)
+            get_series(df, "safety_equipment_available")
+            .map({"yes": 1, "no": 0})
+            .fillna(1)
         )
 
     # -------------------------------
-    # ✅ NUMERIC CLEANING (SAFE)
+    # 🔥 NUMERIC CLEANING (SAFE)
     # -------------------------------
     numeric_cols = [
         "gas_level_ppm",
@@ -96,40 +163,25 @@ def preprocess(df, weather):
     ]
 
     for col in numeric_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+        df[col] = pd.to_numeric(get_series(df, col), errors="coerce").fillna(0)
 
     # -------------------------------
-    # ✅ FIX UNITS (300mm → 300)
+    # 🔥 FEATURE ENGINEERING (SAFE)
     # -------------------------------
-    if "sewer_diameter" in df.columns:
-        df["sewer_diameter"] = df["sewer_diameter"].astype(str).str.replace("mm", "")
-        df["sewer_diameter"] = pd.to_numeric(
-            df["sewer_diameter"], errors="coerce"
-        ).fillna(0)
+    rain = get_series(df, "rainfall_last_24h_mm")
+    water = get_series(df, "water_level_condition")
 
-    # -------------------------------
-    # ✅ FEATURE ENGINEERING
-    # -------------------------------
     df["gas_oxygen_ratio"] = df["gas_level_ppm"] / (df["oxygen_level_percent"] + 1)
-
-    df["rain_water_risk"] = df["rainfall_last_24h_mm"] * df["water_level_condition"]
-
+    df["rain_water_risk"] = rain * water
     df["maintenance_risk"] = df["maintenance_gap_days"] * (df["past_incidents"] + 1)
-
     df["worker_risk"] = df["number_of_workers"] * df["worker_exposure"]
 
-    # -------------------------------
-    # 🔥 ADVANCED FEATURES
-    # -------------------------------
-
     df["oxygen_deficit"] = 21 - df["oxygen_level_percent"]
-
     df["exposure_risk"] = df["number_of_workers"] * df["expected_work_duration_minutes"]
-
     df["combined_risk"] = df["gas_level_ppm"] * df["ventilation_condition"]
+
     # -------------------------------
-    # ✅ FINAL FEATURES (MATCH MODEL)
+    # ✅ FINAL REQUIRED FEATURES
     # -------------------------------
     required_columns = [
         "gas_level_ppm",
@@ -154,6 +206,6 @@ def preprocess(df, weather):
     df = df[required_columns]
 
     print("\n✅ Preprocessing completed")
-    print("📊 Final columns:\n", df.columns.tolist())
+    print("Final columns:\n", df.columns.tolist())
 
     return df

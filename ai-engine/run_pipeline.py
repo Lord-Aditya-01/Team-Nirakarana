@@ -32,7 +32,7 @@ def make_columns_unique(columns):
 # -------------------------------
 def load_and_merge_excel(file_path):
 
-    print("📂 Loading Excel file...")
+    print("Loading Excel file...")
 
     all_sheets = pd.read_excel(file_path, sheet_name=None)
 
@@ -40,7 +40,7 @@ def load_and_merge_excel(file_path):
 
     for sheet_name, df in all_sheets.items():
 
-        print(f"📄 Processing sheet: {sheet_name}")
+        print(f"Processing sheet: {sheet_name}")
 
         if df is None or df.empty:
             continue
@@ -67,7 +67,7 @@ def load_and_merge_excel(file_path):
     # 🔥 Fix duplicate columns after merge
     merged_df.columns = make_columns_unique(merged_df.columns)
 
-    print("\n✅ Final merged columns:\n", merged_df.columns.tolist())
+    print("\nFinal merged columns:\n", merged_df.columns.tolist())
 
     return merged_df
 
@@ -83,9 +83,9 @@ def main():
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
     else:
-        file_path = "data/Samved_input1.xlsx"
+        file_path = "data/Samved_input_Danger1.xlsx"
 
-    print(f"\n📁 Using input file: {file_path}")
+    print(f"\nUsing input file: {file_path}")
 
     # -------------------------------
     # 1️⃣ Load & Merge Data
@@ -95,44 +95,55 @@ def main():
     # -------------------------------
     # 2️⃣ Fetch Weather
     # -------------------------------
-    print("\n🌦 Fetching weather...")
+    print("\nFetching weather...")
     weather = get_weather_data(file_path)
-    print("🌦 Weather Data:", weather)
+    print("Weather Data:", weather)
 
     # -------------------------------
     # 3️⃣ Preprocess
     # -------------------------------
-    print("\n🧹 Preprocessing...")
+    print("\nPreprocessing...")
     df = preprocess(df, weather)
 
     # -------------------------------
     # 4️⃣ ML Prediction
     # -------------------------------
-    print("\n🤖 ML Prediction...")
+    print("\nML Prediction...")
     df = predict_risk(df)
 
     # -------------------------------
     # 5️⃣ Anomaly Detection
     # -------------------------------
-    print("\n⚠️ Detecting anomalies...")
+    print("\nDetecting anomalies...")
     df = detect_anomalies(df)
 
     # -------------------------------
     # 6️⃣ Rule Engine
     # -------------------------------
-    print("\n📏 Applying rules...")
+    print("\nApplying rules...")
     df = apply_rules(df)
 
+    print("\nDEBUG INPUT TO FUSION:\n")
+    print(
+        df[
+            [
+                "gas_level_ppm",
+                "oxygen_level_percent",
+                "ventilation_condition",
+                "water_level_condition",
+            ]
+        ]
+    )
     # -------------------------------
     # 7️⃣ Final Fusion
     # -------------------------------
-    print("\n🧠 Final fusion...")
+    print("\nFinal fusion...")
     df = compute_final_risk(df)
 
     # -------------------------------
     # 8️⃣ OUTPUT DISPLAY
     # -------------------------------
-    print("\n🚨 FINAL OUTPUT:\n")
+    print("\nFINAL OUTPUT:\n")
 
     output_cols = [
         "ml_prediction",
@@ -151,9 +162,9 @@ def main():
     # -------------------------------
     try:
         df.to_excel("output/output_results.xlsx", index=False)
-        print("\n💾 Results saved to: output/output_results.xlsx")
+        print("\nResults saved to: output/output_results.xlsx")
     except Exception as e:
-        print("\n⚠️ Could not save file:", e)
+        print("\nCould not save file:", e)
 
 
 # -------------------------------

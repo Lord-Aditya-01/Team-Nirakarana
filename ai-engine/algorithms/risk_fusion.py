@@ -6,118 +6,119 @@ def compute_final_risk(df):
 
     for _, row in df.iterrows():
 
-        # -------------------------------
-        # 🚨 1. HARD SAFETY RULES (NON-NEGOTIABLE)
-        # -------------------------------
-        oxygen = row.get("oxygen_level_percent", 21)
-        gas = row.get("gas_level_ppm", 0)
-        water = row.get("water_level_condition", 1)
-        ventilation = row.get("ventilation_condition", 1)
+        score = 0
+        reasons = []
 
+        gas = row["gas_level_ppm"]
+        oxygen = row["oxygen_level_percent"]
+        ventilation = row["ventilation_condition"]
+        water = row["water_level_condition"]
+
+        # -------------------------------
+        # 🚨 HARD RULES (ONLY EXTREME)
+        # -------------------------------
         if oxygen < 17:
             final_status.append("DANGER")
             risk_score.append(100)
-            reason.append("Critical: Oxygen below survival level")
+            reason.append("Critical Oxygen")
             continue
 
-        if gas > 120:
+        if gas > 110:
             final_status.append("DANGER")
             risk_score.append(100)
-            reason.append("Critical: Extremely high gas")
-            continue
-
-        if water == 3 and gas > 40:
-            final_status.append("DANGER")
-            risk_score.append(95)
-            reason.append("Flooded sewer + gas accumulation")
+            reason.append("Extreme Gas")
             continue
 
         # -------------------------------
-        # ⚠️ 2. RULE ENGINE PRIORITY
+        # 📊 BASE SCORING
         # -------------------------------
-        if row.get("rule_status") == "DANGER":
-            final_status.append("DANGER")
-            risk_score.append(85)
-            reason.append("Rule Engine Triggered")
-            continue
+
+        # Gas
+        if gas > 80:
+            score += 35
+            reasons.append("High Gas")
+        elif gas > 50:
+            score += 20
+            reasons.append("Moderate Gas")
+
+        # Oxygen
+        if oxygen < 18:
+            score += 35
+            reasons.append("Low Oxygen")
+        elif oxygen < 19:
+            score += 20
+            reasons.append("Borderline Oxygen")
+
+        # 🔥 EXTRA BOOST (FIX FOR MODERATE)
+        if 45 <= gas <= 70:
+            score += 10
+            reasons.append("Moderate Gas Range")
+
+        if 18 <= oxygen <= 19:
+            score += 10
+            reasons.append("Borderline Oxygen Range")
+
+        # Ventilation
+        if ventilation == 2:
+            score += 20
+            reasons.append("Poor Ventilation")
+
+        # Water
+        if water == 3:
+            score += 15
+            reasons.append("High Water")
+
+        # Maintenance
+        if row["maintenance_gap_days"] > 60:
+            score += 10
+
+        # Incidents
+        if row["past_incidents"] > 2:
+            score += 10
 
         # -------------------------------
-        # 🧠 3. ML + CONFIDENCE
+        # 🤖 ML INFLUENCE
         # -------------------------------
-        ml_pred = row.get("ml_prediction", 0)
-        confidence = row.get("ml_confidence", 0)
+        ml = row["ml_prediction"]
+        conf = row["ml_confidence"]
 
-        # Default fallback
-        current_status = "SAFE"
-        current_score = 20
-        current_reason = "Normal Conditions"
-
-        if ml_pred == 2:  # DANGER
-            if confidence > 0.75:
-                current_status = "DANGER"
-                current_score = int(75 + confidence * 20)
-                current_reason = "ML High Confidence Danger"
-            else:
-                current_status = "ALERT"
-                current_score = int(55 + confidence * 20)
-                current_reason = "ML Low Confidence Danger"
-
-        elif ml_pred == 1:  # ALERT
-            current_status = "ALERT"
-            current_score = int(45 + confidence * 20)
-            current_reason = "ML Alert"
-
-        else:  # SAFE
-            if confidence < 0.5:
-                current_status = "ALERT"
-                current_score = 40
-                current_reason = "Low Confidence Safe"
-            else:
-                current_status = "SAFE"
-                current_score = int(15 + confidence * 15)
-                current_reason = "Safe Conditions"
+        if ml == 2:
+            score += int(25 * conf)
+        elif ml == 1:
+            score += int(10 * conf)
 
         # -------------------------------
-        # ⚠️ 4. ANOMALY BOOST
+        # ⚠️ UNCERTAINTY
+        # -------------------------------
+        if row.get("uncertain", False):
+            score += 8
+
+        # -------------------------------
+        # ⚠️ ANOMALY
         # -------------------------------
         if row.get("anomaly_flag", 0) == 1:
-            if current_status == "SAFE":
-                current_status = "ALERT"
-                current_score += 15
-                current_reason += " + Anomaly"
-            elif current_status == "ALERT":
-                current_score += 10
-                current_reason += " + Anomaly"
+            score += 15
 
         # -------------------------------
-        # ⚠️ 5. ENVIRONMENTAL RISK BOOST
+        # 🚨 SAFETY LOCK (CRITICAL FIX)
         # -------------------------------
-        if ventilation == 2 and gas > 40:
-            current_status = "DANGER"
-            current_score = max(current_score, 85)
-            current_reason = "Poor Ventilation + Gas Risk"
-
-        if row.get("past_incidents", 0) > 2:
-            current_score += 5
-            current_reason += " + High Incident History"
-
-        if row.get("maintenance_gap_days", 0) > 60:
-            current_score += 5
-            current_reason += " + Poor Maintenance"
+        if gas > 45 or oxygen < 19 or ventilation == 2:
+            score = max(score, 30)  # ensures ALERT minimum
 
         # -------------------------------
-        # 📊 6. NORMALIZE SCORE
+        # 🎯 FINAL DECISION
         # -------------------------------
-        current_score = min(100, max(0, current_score))
+        if score >= 75:
+            status = "DANGER"
+        elif score >= 30:
+            status = "ALERT"
+        else:
+            status = "SAFE"
 
-        # Save
-        final_status.append(current_status)
-        risk_score.append(current_score)
-        reason.append(current_reason)
+        final_status.append(status)
+        risk_score.append(min(score, 100))
+        reason.append(", ".join(reasons) if reasons else "Normal")
 
-    # -------------------------------
-    # SAVE RESULTS
-    # -------------------------------
     df["final_status"] = final_status
     df["risk_score"] = risk_score
     df["risk_reason"] = reason
