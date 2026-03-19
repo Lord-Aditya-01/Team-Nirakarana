@@ -7,6 +7,7 @@ from algorithms.risk_prediction import predict_risk
 from algorithms.anomaly_detection import detect_anomalies
 from algorithms.rule_engine import apply_rules
 from algorithms.risk_fusion import compute_final_risk
+from algorithms.safety_decision import compute_safety_decision
 
 
 # -------------------------------
@@ -140,6 +141,7 @@ def main():
     print("\nFinal fusion...")
     df = compute_final_risk(df)
 
+    df = compute_safety_decision(df)
     # -------------------------------
     # 8️⃣ OUTPUT DISPLAY
     # -------------------------------
@@ -156,7 +158,30 @@ def main():
     ]
 
     print(df[output_cols].to_string(index=False))
+    print(
+        df[
+            [
+                "final_status",
+                "risk_score",
+                "entry_decision",
+                "safe_work_time_minutes",
+                "decision_reason",
+            ]
+        ]
+    )
 
+    print("\n")
+    print("\n")
+    print(
+        df[
+            [
+                "safe_work_time_minutes",
+            ]
+        ]
+    )
+
+    print("\n")
+    print("\n")
     # -------------------------------
     # 💾 SAVE OUTPUT (OPTIONAL)
     # -------------------------------

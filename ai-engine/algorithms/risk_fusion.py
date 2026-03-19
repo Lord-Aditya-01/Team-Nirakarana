@@ -47,6 +47,20 @@ def compute_final_risk(df):
             reason.append("Gas + High Water")
             continue
 
+        # 🔥 NEW: Oxygen + Gas combo (very dangerous)
+        if oxygen < 18.5 and gas > 40:
+            final_status.append("DANGER")
+            risk_score.append(95)
+            reason.append("Low Oxygen + Gas")
+            continue
+
+        # 🔥 NEW: High water alone can be dangerous
+        if water == 3 and oxygen < 19:
+            final_status.append("DANGER")
+            risk_score.append(90)
+            reason.append("Flooding + Low Oxygen")
+            continue
+
         # -------------------------------
         # 🚨 SYSTEM OVERRIDE (CRITICAL)
         # -------------------------------
@@ -82,16 +96,14 @@ def compute_final_risk(df):
             score += 20
             reasons.append("Borderline Oxygen")
 
-        # Moderate Boost
+        # Moderate boost
         if 45 <= gas <= 70:
             score += 10
-            reasons.append("Moderate Gas Range")
 
         if 18 <= oxygen <= 19:
             score += 10
-            reasons.append("Borderline Oxygen Range")
 
-        # Ventilation (FIXED)
+        # Ventilation
         if ventilation >= 2:
             score += 20
             reasons.append("Poor Ventilation")
@@ -123,14 +135,14 @@ def compute_final_risk(df):
             score += int(10 * conf)
 
         # -------------------------------
-        # ⚠️ UNCERTAINTY HANDLING
+        # ⚠️ UNCERTAINTY
         # -------------------------------
         if row.get("uncertain", False):
             score += 8
             reasons.append("Uncertain Prediction")
 
         # -------------------------------
-        # ⚠️ ANOMALY DETECTION
+        # ⚠️ ANOMALY
         # -------------------------------
         if row.get("anomaly_flag", 0) == 1:
             score += 15
