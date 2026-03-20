@@ -12,10 +12,13 @@ from algorithms.safety_decision import compute_safety_decision
 
 
 # -------------------------------
-# 🔥 PRINT TO TERMINAL ONLY
+# 🔥 SAFE LOGGER (stderr ONLY)
 # -------------------------------
 def log(msg):
-    print(msg, file=sys.stderr)
+    try:
+        print(str(msg), file=sys.stderr)
+    except:
+        pass
 
 
 # -------------------------------
@@ -37,7 +40,7 @@ def make_columns_unique(columns):
 
 
 # -------------------------------
-# 🔥 LOAD + MERGE ALL SHEETS
+# 🔥 LOAD + MERGE EXCEL
 # -------------------------------
 def load_and_merge_excel(file_path):
 
@@ -53,6 +56,7 @@ def load_and_merge_excel(file_path):
         if df is None or df.empty:
             continue
 
+        # Normalize columns
         df.columns = (
             df.columns.astype(str)
             .str.strip()
@@ -71,7 +75,7 @@ def load_and_merge_excel(file_path):
 
     merged_df.columns = make_columns_unique(merged_df.columns)
 
-    log(f"Final columns: {merged_df.columns.tolist()}")
+    log(f"Final columns count: {len(merged_df.columns)}")
 
     return merged_df
 
@@ -81,117 +85,12 @@ def load_and_merge_excel(file_path):
 # -------------------------------
 def main():
 
-<<<<<<< HEAD
-=======
-    # -------------------------------
-    # 🔥 DYNAMIC INPUT FILE
-    # -------------------------------
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-    else:
-        file_path = "data/Samved_input_Safe1.xlsx"
+    results = []  # ✅ FIX: always defined
 
-    print(f"\nUsing input file: {file_path}")
-
-    # -------------------------------
-    # 1️⃣ Load & Merge Data
-    # -------------------------------
-    df = load_and_merge_excel(file_path)
-
-    # -------------------------------
-    # 2️⃣ Fetch Weather
-    # -------------------------------
-    print("\nFetching weather...")
-    weather = get_weather_data(file_path)
-    print("Weather Data:", weather)
-
-    # -------------------------------
-    # 3️⃣ Preprocess
-    # -------------------------------
-    print("\nPreprocessing...")
-    df = preprocess(df, weather)
-
-    # -------------------------------
-    # 4️⃣ ML Prediction
-    # -------------------------------
-    print("\nML Prediction...")
-    df = predict_risk(df)
-
-    # -------------------------------
-    # 5️⃣ Anomaly Detection
-    # -------------------------------
-    print("\nDetecting anomalies...")
-    df = detect_anomalies(df)
-
-    # -------------------------------
-    # 6️⃣ Rule Engine
-    # -------------------------------
-    print("\nApplying rules...")
-    df = apply_rules(df)
-
-    print("\nDEBUG INPUT TO FUSION:\n")
-    print(
-        df[
-            [
-                "gas_level_ppm",
-                "oxygen_level_percent",
-                "ventilation_condition",
-                "water_level_condition",
-            ]
-        ]
-    )
-    # -------------------------------
-    # 7️⃣ Final Fusion
-    # -------------------------------
-    print("\nFinal fusion...")
-    df = compute_final_risk(df)
-
-    df = compute_safety_decision(df)
-    # -------------------------------
-    # 8️⃣ OUTPUT DISPLAY
-    # -------------------------------
-    print("\nFINAL OUTPUT:\n")
-
-    output_cols = [
-        "ml_prediction",
-        "ml_confidence",
-        "anomaly_flag",
-        "rule_status",
-        "final_status",
-        "risk_score",
-        "risk_reason",
-    ]
-
-    print(df[output_cols].to_string(index=False))
-    print(
-        df[
-            [
-                "final_status",
-                "risk_score",
-                "entry_decision",
-                "safe_work_time_minutes",
-                "decision_reason",
-            ]
-        ]
-    )
-
-    print("\n")
-    print("\n")
-    print(
-        df[
-            [
-                "safe_work_time_minutes",
-            ]
-        ]
-    )
-
-    print("\n")
-    print("\n")
-    # -------------------------------
-    # 💾 SAVE OUTPUT (OPTIONAL)
-    # -------------------------------
->>>>>>> ad878e7588954c041b7da05aab3c6b4f146f92c2
     try:
+        # -------------------------------
+        # 📥 INPUT FILE
+        # -------------------------------
         if len(sys.argv) > 1:
             file_path = sys.argv[1]
         else:
@@ -200,7 +99,7 @@ def main():
         log(f"Using file: {file_path}")
 
         # -------------------------------
-        # 1️⃣ LOAD DATA
+        # 1️⃣ LOAD
         # -------------------------------
         df = load_and_merge_excel(file_path)
 
@@ -209,7 +108,6 @@ def main():
         # -------------------------------
         log("Fetching weather...")
         weather = get_weather_data(file_path)
-        log(f"Weather: {weather}")
 
         # -------------------------------
         # 3️⃣ PREPROCESS
@@ -218,13 +116,13 @@ def main():
         df = preprocess(df, weather)
 
         # -------------------------------
-        # 4️⃣ ML
+        # 4️⃣ ML PREDICTION
         # -------------------------------
-        log("ML Prediction...")
+        log("Running ML prediction...")
         df = predict_risk(df)
 
         # -------------------------------
-        # 5️⃣ ANOMALY
+        # 5️⃣ ANOMALY DETECTION
         # -------------------------------
         log("Detecting anomalies...")
         df = detect_anomalies(df)
@@ -238,7 +136,7 @@ def main():
         # -------------------------------
         # 7️⃣ FINAL RISK
         # -------------------------------
-        log("Final fusion...")
+        log("Computing final risk...")
         df = compute_final_risk(df)
 
         # -------------------------------
@@ -250,50 +148,51 @@ def main():
         # -------------------------------
         # ✅ FINAL JSON OUTPUT
         # -------------------------------
-        results = []
-
         for _, row in df.iterrows():
-            results.append({
-                "final_status": row.get("final_status", "UNKNOWN"),
-                "risk_score": int(row.get("risk_score", 0)),
-                "entry_decision": row.get("entry_decision", "DENY"),
-                "safe_work_time_minutes": int(row.get("safe_work_time_minutes", 0)),
-                "risk_reason": row.get("risk_reason", ""),
-                "decision_reason": row.get("decision_reason", "")
-            })
+            try:
+                reasons = []
 
-        # 🔥 ONLY THIS GOES TO BACKEND
+                if row.get("oxygen_level_percent", 21) < 19:
+                    reasons.append("Low Oxygen Level")
+
+                if row.get("gas_level_ppm", 0) > 50:
+                    reasons.append("High Toxic Gas")
+
+                if str(row.get("ventilation_condition", "")).lower() in ["poor", "bad"]:
+                    reasons.append("Poor Ventilation")
+
+                if str(row.get("water_level_condition", "")).lower() in ["high"]:
+                    reasons.append("High Water Level Risk")
+
+                if not reasons:
+                    reasons.append("Normal Conditions")
+
+                results.append(
+                    {
+                        "final_status": str(row.get("final_status", "UNKNOWN")),
+                        "risk_score": int(row.get("risk_score", 0)),
+                        "entry_decision": str(row.get("entry_decision", "DENY")),
+                        "safe_work_time_minutes": int(
+                            row.get("safe_work_time_minutes", 0)
+                        ),
+                        "risk_reason": ", ".join(reasons),
+                        "decision_reason": str(row.get("decision_reason", "")),
+                    }
+                )
+
+            except Exception as row_error:
+                log(f"Row error: {row_error}")
+
+        # ✅ ONLY THIS PRINT GOES TO NODE
         print(json.dumps(results))
 
     except Exception as e:
-        print(json.dumps({"error": str(e)}))
+        # ✅ ALWAYS RETURN JSON
+        print(json.dumps({"error": str(e), "results": results}))
 
 
+# -------------------------------
+# ▶️ RUN
+# -------------------------------
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-
-    try:
-        input_data = json.load(sys.stdin)
-        df = pd.DataFrame([input_data])
-    except:
-        df = pd.DataFrame([{}])
-
-    weather = {
-        "temperature_c": 30,
-        "humidity_percent": 50,
-        "rainfall_last_24h_mm": 0,
-    }
-
-    df = preprocess(df, weather)
-    df = predict_risk(df)
-    df = detect_anomalies(df)
-    df = apply_rules(df)
-    df = compute_final_risk(df)
-    df = compute_safety_decision(df)
-
-    result = df.iloc[0].to_dict()
-
-    print(json.dumps(result))
->>>>>>> 51cd168c16eae35fabb0b702816d7eaebc628d03

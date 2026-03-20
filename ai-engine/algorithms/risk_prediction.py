@@ -1,9 +1,22 @@
 import pandas as pd
 import joblib
+import os
 
 
-model = joblib.load("models/risk_model.pkl")
-model_features = joblib.load("models/model_features.pkl")
+import os
+import joblib
+import pandas as pd
+
+# ✅ correct base path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ✅ correct model paths
+model_path = os.path.join(BASE_DIR, "../models/risk_model.pkl")
+features_path = os.path.join(BASE_DIR, "../models/model_features.pkl")
+
+# ✅ load models
+model = joblib.load(model_path)
+model_features = joblib.load(features_path)
 
 
 # -------------------------------

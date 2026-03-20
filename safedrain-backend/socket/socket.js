@@ -1,7 +1,12 @@
 const Location = require("../models/Location");
 const Worker = require("../models/Worker");
 const { spawn } = require("child_process");
-const workersState = {}; // ⭐ MASTER LIVE WORKER STATE
+
+const workersState = {};
+
+// ===============================
+// 🧠 AI FUNCTION
+// ===============================
 function runAI(workerData) {
   return new Promise((resolve) => {
 
@@ -9,13 +14,18 @@ function runAI(workerData) {
 
     let result = "";
 
-    // send data to python
     py.stdin.write(JSON.stringify(workerData));
     py.stdin.end();
 
     py.stdout.on("data", (data) => {
       result += data.toString();
     });
+
+    py.stderr.on("data", (data) => {
+      console.log("PYTHON ERROR:", data.toString());
+    });
+
+
 
     py.on("close", () => {
       try {
@@ -27,23 +37,34 @@ function runAI(workerData) {
       }
     });
 
+    if (aiResult && aiResult.final_status === "DANGER") {
+      io.emit("new-alert", {
+          message: "🚨 DANGER: Unsafe sewer conditions!"
+      });
+    }
+
   });
 }
+
+// ===============================
+// 🚀 SOCKET MAIN
+// ===============================
 module.exports = (io) => {
 
   io.on("connection", (socket) => {
+
     console.log("Connected:", socket.id);
 
-    // auto join supervisor
+    // ===============================
+    // ✅ AUTO JOIN SUPERVISOR
+    // ===============================
     if (socket.handshake.query.role === "supervisor") {
       socket.join("supervisors");
-      console.log("Supervisor auto-joined room");
     }
 
     // ===============================
     // ✅ SUPERVISOR LOGIN
     // ===============================
-
     socket.on("supervisor-login", ({ username, password }) => {
 
       if (username === "supervisor" && password === "admin123") {
@@ -61,32 +82,25 @@ module.exports = (io) => {
     });
 
     // ===============================
-    // ✅ WORKER SIGNUP (FIXED)
+    // ✅ WORKER SIGNUP
     // ===============================
-
     socket.on("worker-signup", async (data) => {
 
-      console.log("Signup called:", data); // 🔍 DEBUG
-
       try {
-
         const { name, workerId, password, mobile, emergencyContact } = data;
 
-        // ✅ validation
         if (!name || !workerId || !password) {
-          socket.emit("worker-signup-failed", "Missing required fields");
+          socket.emit("worker-signup-failed", "Missing fields");
           return;
         }
 
-        // ✅ check duplicate
         const exists = await Worker.findOne({ workerId });
 
         if (exists) {
-          socket.emit("worker-signup-failed", "Worker already exists");
+          socket.emit("worker-signup-failed", "Worker exists");
           return;
         }
 
-        // ✅ save to DB
         const worker = await Worker.create({
           name,
           workerId,
@@ -95,13 +109,11 @@ module.exports = (io) => {
           emergencyContact
         });
 
-        console.log("Worker saved:", worker.workerId);
-
         socket.emit("worker-signup-success", worker);
 
       } catch (err) {
-        console.log("Signup error:", err);
-        socket.emit("worker-signup-failed", "Signup error");
+        console.log(err);
+        socket.emit("worker-signup-failed", "Error");
       }
 
     });
@@ -109,49 +121,35 @@ module.exports = (io) => {
     // ===============================
     // ✅ WORKER LOGIN
     // ===============================
-
     socket.on("worker-login", async ({ workerId, password }) => {
 
-      try {
+      const worker = await Worker.findOne({ workerId });
 
-        const worker = await Worker.findOne({ workerId });
-
-        if (!worker || worker.password !== password) {
-          socket.emit("worker-login-failed");
-          return;
-        }
-
-        socket.role = "worker";
-        socket.workerId = workerId;
-
-        workersState[workerId] = {
-          id: workerId,
-          workerId,
-          name: worker.name,
-          mobile: worker.mobile,
-          emergencyContact: worker.emergencyContact,
-          status: "NORMAL",
-          online: true
-        };
-
-        socket.emit("worker-login-success", {
-          workerId: worker.workerId,
-          name: worker.name,
-          emergencyContact: worker.emergencyContact
-        });
-
-        console.log("Worker logged in:", workerId);
-
-      } catch (err) {
-        console.log("Worker login error:", err);
+      if (!worker || worker.password !== password) {
+        socket.emit("worker-login-failed");
+        return;
       }
+
+      socket.role = "worker";
+      socket.workerId = workerId;
+
+      workersState[workerId] = {
+        id: workerId,
+        workerId,
+        name: worker.name,
+        mobile: worker.mobile,
+        emergencyContact: worker.emergencyContact,
+        status: "NORMAL",
+        online: true
+      };
+
+      socket.emit("worker-login-success", workersState[workerId]);
 
     });
 
     // ===============================
-    // ✅ GET WORKER SESSION
+    // ✅ GET SESSION
     // ===============================
-
     socket.on("get-worker-session", () => {
       if (socket.role !== "worker") return;
       socket.emit("worker-session-data", workersState[socket.workerId]);
@@ -160,26 +158,18 @@ module.exports = (io) => {
     // ===============================
     // ✅ SUPERVISOR JOIN
     // ===============================
-
     socket.on("join-supervisor", () => {
       socket.join("supervisors");
-
       socket.emit("initial-workers", Object.values(workersState));
     });
 
     // ===============================
-    // ✅ WORKER LOCATION UPDATE
+    // ✅ LOCATION UPDATE
     // ===============================
-
     socket.on("worker-location-update", async (data) => {
 
       const id = socket.workerId;
       if (!id) return;
-
-      if (!data?.latitude || !data?.longitude) {
-        console.log("Invalid location data");
-        return;
-      }
 
       workersState[id] = {
         ...workersState[id],
@@ -198,73 +188,35 @@ module.exports = (io) => {
 
     });
 
-<<<<<<< HEAD
-    io.to("supervisors").emit(
-      "receive-location",
-      workersState[id]
-    );
-  });
-=======
     // ===============================
-    // ✅ GAS UPDATE
+    // ✅ GAS UPDATE (OPTIONAL)
     // ===============================
-
     socket.on("worker-gas-update", async (data) => {
 
       const id = socket.workerId;
       if (!id) return;
 
-      // STEP 1: update worker data
       workersState[id] = {
         ...workersState[id],
         ...data
       };
 
-      // STEP 2: RUN AI
       const aiResult = await runAI(workersState[id]);
 
-      // STEP 3: attach AI results
       if (aiResult) {
         workersState[id] = {
           ...workersState[id],
-
-          final_status: aiResult.final_status,
-          risk_score: aiResult.risk_score,
-          entry_decision: aiResult.entry_decision,
-          safe_work_time_minutes: aiResult.safe_work_time_minutes,
-          risk_reason: aiResult.risk_reason,
-          decision_reason: aiResult.decision_reason
+          ...aiResult
         };
       }
 
-      // STEP 4: send to frontend
-      io.to("supervisors").emit("receive-location", workersState[id]);
-
-    });
->>>>>>> ad878e7588954c041b7da05aab3c6b4f146f92c2
-
-    // ===============================
-    // ✅ WORK STATUS UPDATE
-    // ===============================
-
-    socket.on("worker-work-status", (data) => {
-
-      const id = socket.workerId;
-      if (!id) return;
-
-      workersState[id] = {
-        ...workersState[id],
-        ...data
-      };
-
       io.to("supervisors").emit("receive-location", workersState[id]);
 
     });
 
-    // ======================7=========
-    // ✅ SOS EMERGENCY
     // ===============================
-
+    // ✅ SOS
+    // ===============================
     socket.on("worker-sos", () => {
 
       const id = socket.workerId;
@@ -277,17 +229,15 @@ module.exports = (io) => {
       io.to("supervisors").emit("new-alert", {
         type: "SOS",
         workerId: id,
-        name: workersState[id].name,
-        message: "SOS Emergency Activated",
+        message: "Emergency",
         time: Date.now()
       });
 
     });
 
     // ===============================
-    // ✅ WORKER LOGOUT
+    // ✅ LOGOUT
     // ===============================
-
     socket.on("worker-logout", () => {
 
       if (socket.workerId) {
@@ -296,8 +246,6 @@ module.exports = (io) => {
         io.to("supervisors").emit("worker-offline", {
           workerId: socket.workerId
         });
-
-        console.log("Worker logged out:", socket.workerId);
       }
 
     });
@@ -305,7 +253,6 @@ module.exports = (io) => {
     // ===============================
     // ✅ DISCONNECT
     // ===============================
-
     socket.on("disconnect", () => {
 
       if (socket.workerId && workersState[socket.workerId]) {
@@ -315,20 +262,15 @@ module.exports = (io) => {
         io.to("supervisors").emit("worker-offline", {
           workerId: socket.workerId
         });
-
-        console.log("Worker disconnected:", socket.workerId);
       }
 
     });
 
     // ===============================
-    // ✅ CHECK WORKER AUTH
+    // ✅ AUTH CHECK
     // ===============================
-
     socket.on("check-worker-auth", () => {
-
       socket.emit("worker-auth-result", socket.role === "worker");
-
     });
 
   });
