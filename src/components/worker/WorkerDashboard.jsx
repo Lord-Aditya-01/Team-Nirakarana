@@ -1,6 +1,5 @@
 import WorkerHeader from "./WorkerHeader";
 import LocationMap from "./LocationMap";
-import GasStatus from "./GasStatus";
 import SOSButton from "./SOSButton";
 import WorkStatus from "./WorkStatus";
 import "./worker.css";
